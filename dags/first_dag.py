@@ -2,16 +2,24 @@ from datetime import datetime, timedelta
 import requests
 import pandas as pd
 import sys
+import sqlalchemy
+from dotenv import dotenv_values
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 
 def sys_print():
-    print(sys.path)
+    config = dotenv_values("api_keys/.env")
+    engine = sqlalchemy.create_engine(
+        "postgresql://{}:{}@host.docker.internal:6543/test".format(
+            config["POSTGRES_USER"], config["POSTGRES_PASSWORD"]
+        )
+    )
+    engine.connect()
 
 
-default_args = {"owner": "scott", "retries": 5, "retry_delay": timedelta(minutes=2)}
+default_args = {"owner": "scott", "retries": 1, "retry_delay": timedelta(seconds=1)}
 
 with DAG(
     dag_id="Sys-Test",
