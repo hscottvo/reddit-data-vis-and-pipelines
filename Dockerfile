@@ -3,7 +3,7 @@ RUN pip uninstall  --yes azure-storage && pip install -U azure-storage-blob apac
 RUN pip install google-api-python-client
 RUN pip install google-auth-oauthlib
 RUN pip install python-dotenv
-RUN pip install praw
+RUN pip install --upgrade praw
 RUN pip install SQLAlchemy
 RUN pip install psycopg2
 
