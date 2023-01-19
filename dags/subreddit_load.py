@@ -62,7 +62,7 @@ with DAG(
     dag_id="subreddit_list",
     default_args=default_args,
     start_date=datetime(2022, 12, 29),
-    catchup=True,
+    catchup=False,
 ) as dag:
     task0 = PythonOperator(
         task_id="read_subreddit_list", python_callable=get_subreddit_list
