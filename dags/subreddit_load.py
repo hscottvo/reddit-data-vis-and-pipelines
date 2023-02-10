@@ -64,11 +64,11 @@ with DAG(
     start_date=datetime(2022, 12, 29),
     catchup=False,
 ) as dag:
-    task0 = PythonOperator(
+    hit_api = PythonOperator(
         task_id="read_subreddit_list", python_callable=get_subreddit_list
     )
 
-    task1 = PostgresOperator(
+    create_table = PostgresOperator(
         task_id="create_table",
         postgres_conn_id="postgres_reddit",
         sql="""--sql
@@ -79,7 +79,7 @@ with DAG(
             ;""",
     )
 
-    task2 = PostgresOperator(
+    clear_existing_table = PostgresOperator(
         task_id="clear_table",
         postgres_conn_id="postgres_reddit",
         sql="""--sql
@@ -87,8 +87,8 @@ with DAG(
             ;""",
     )
 
-    task3 = PythonOperator(
+    postgres_export = PythonOperator(
         task_id="export_to_postgres", python_callable=export_subreddit_list
     )
 
-    task0 >> task1 >> task2 >> task3
+    hit_api >> create_table >> clear_existing_table >> postgres_export
