@@ -6,6 +6,7 @@ RUN pip install python-dotenv
 RUN pip install --upgrade praw
 RUN pip install SQLAlchemy
 RUN pip install psycopg2
+RUN pip install ratelimit
 
 # Default powerline10k theme, no plugins installed
 RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v1.1.4/zsh-in-docker.sh)"
