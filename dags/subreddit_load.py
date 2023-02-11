@@ -23,9 +23,9 @@ def get_subreddit_list():
     wiki_list = soup.find("div", {"class": "md wiki"})
     bullets = wiki_list.find_all("li")
     all_a = [i.a for i in bullets if i.a is not None]
-
     subreddits = pd.DataFrame([a["href"] for a in all_a if a["href"].startswith("/r/")])
     subreddits.columns = ["subreddit"]
+    subreddits["name"] = subreddits.apply(lambda x: x["subreddit"][3:], axis=1)
     subreddits = subreddits.drop_duplicates()
     util.create_dir("output")
     subreddits.to_csv("output/subreddits.csv", index=False)
@@ -73,8 +73,9 @@ with DAG(
         postgres_conn_id="postgres_reddit",
         sql="""--sql
             create table if not exists subreddits (
-              subreddit character varying,
-              primary key (subreddit)
+              subreddit varchar
+              , name varchar
+              , primary key(subreddit)
             )
             ;""",
     )
