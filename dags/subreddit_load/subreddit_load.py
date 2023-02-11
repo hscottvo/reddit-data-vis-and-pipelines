@@ -9,6 +9,7 @@ from airflow import DAG
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.operators.python import PythonOperator
+from airflow.operators.bash import BashOperator
 
 
 def get_subreddit_list():
@@ -64,32 +65,29 @@ with DAG(
     start_date=datetime(2022, 12, 29),
     catchup=False,
 ) as dag:
-    hit_api = PythonOperator(
+    t1 = PythonOperator(
         task_id="read_subreddit_list", python_callable=get_subreddit_list
     )
 
-    create_table = PostgresOperator(
+    t2 = PostgresOperator(
         task_id="create_table",
         postgres_conn_id="postgres_reddit",
-        sql="""--sql
-            create table if not exists subreddits (
-              subreddit varchar
-              , name varchar
-              , primary key(subreddit)
-            )
-            ;""",
+        sql="sql/create_table.sql",
     )
 
-    clear_existing_table = PostgresOperator(
+    t3 = PostgresOperator(
         task_id="clear_table",
         postgres_conn_id="postgres_reddit",
-        sql="""--sql
-            truncate table subreddits
-            ;""",
+        sql="sql/clear_table.sql",
     )
 
-    postgres_export = PythonOperator(
+    t4 = PythonOperator(
         task_id="export_to_postgres", python_callable=export_subreddit_list
     )
 
-    hit_api >> create_table >> clear_existing_table >> postgres_export
+    t5 = BashOperator(
+        task_id="clean_directory",
+        bash_command="rm ${AIRFLOW_HOME}/output/subreddits.csv"
+    )
+
+    t1 >> t2 >> t3 >> t4 >> t5
