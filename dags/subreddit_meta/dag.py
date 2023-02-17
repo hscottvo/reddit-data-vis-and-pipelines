@@ -13,8 +13,9 @@ from airflow.operators.bash import BashOperator
 
 from ratelimit import limits, RateLimitException, sleep_and_retry
 
+
 @sleep_and_retry
-@limits(calls=100, period=120)
+@limits(calls=10, period=60)
 def api_hit_helper(reddit_conn, sub: str):
     sub_count = reddit_conn.subreddit(sub).subscribers
     print(f"{sub} subscriber count: {sub_count}")
@@ -29,12 +30,15 @@ def get_sub_meta():
     )
 
     hook = PostgresHook(postgres_conn_id="postgres_reddit")
-    subs = hook.get_pandas_df(sql="""--sql
+    subs = hook.get_pandas_df(
+        sql="""--sql
         select name from public.subreddits;
-    """)
+    """
+    )
     print(subs.dtypes)
     print(subs.head())
-    subs["sub_count"] = subs.head().apply(lambda x: api_hit_helper(reddit, x["name"]))
+    subs["sub_count"] = subs.apply(lambda x: api_hit_helper(reddit, x["name"]), axis=1)
+
 
 default_args = {"owner": "scott", "retries": 1, "retry_delay": timedelta(seconds=2)}
 
@@ -44,9 +48,6 @@ with DAG(
     start_date=datetime(2022, 12, 29),
     catchup=False,
 ) as dag:
-    t1 = PythonOperator(
-        task_id="call_api_per_sub",
-        python_callable=get_sub_meta
-    )
- 
+    t1 = PythonOperator(task_id="call_api_per_sub", python_callable=get_sub_meta)
+
     t1
