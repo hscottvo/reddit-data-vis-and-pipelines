@@ -4,6 +4,7 @@ import pandas as pd
 import praw
 from dotenv import dotenv_values
 from helpers import util
+from datetime import datetime
 
 from airflow import DAG
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -28,6 +29,7 @@ def get_subreddit_list():
     subreddits.columns = ["subreddit"]
     subreddits["name"] = subreddits.apply(lambda x: x["subreddit"][3:], axis=1)
     subreddits = subreddits.drop_duplicates()
+    subreddits["date"] = datetime(2000, 1, 1).date()
     util.create_dir("output")
     subreddits.to_csv("output/subreddits.csv", index=False)
 

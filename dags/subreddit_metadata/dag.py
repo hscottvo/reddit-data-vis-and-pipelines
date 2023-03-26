@@ -28,16 +28,18 @@ def get_sub_meta():
         client_secret=config["REDDIT_CLIENT_SECRET"],
         user_agent=config["REDDIT_USER_AGENT"],
     )
+    import os
+
+    print(f"pwd: {os.getcwd()}")
 
     hook = PostgresHook(postgres_conn_id="postgres_reddit")
-    subs = hook.get_pandas_df(
-        sql="""--sql
-        select name from public.subreddits;
-    """
-    )
-    print(subs.dtypes)
-    print(subs.head())
-    subs["sub_count"] = subs.apply(lambda x: api_hit_helper(reddit, x["name"]), axis=1)
+    with open(
+        f"${AIRFLOW_HOME}subreddit_metadata/sql/subreddit_names.sql", "r"
+    ) as query:
+        subs = hook.get_pandas_df(sql=query)
+    # print(subs.dtypes)
+    # print(subs.head())
+    # subs["sub_count"] = subs.apply(lambda x: api_hit_helper(reddit, x["name"]), axis=1)
 
 
 default_args = {"owner": "scott", "retries": 1, "retry_delay": timedelta(seconds=2)}
