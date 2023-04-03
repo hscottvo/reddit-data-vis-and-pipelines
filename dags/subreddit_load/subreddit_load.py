@@ -29,10 +29,7 @@ def get_subreddit_list():
     subreddits = pd.DataFrame([a["href"] for a in all_a if a["href"].startswith("/r/")])
     subreddits.columns = ["subreddit"]
     subreddits["name"] = subreddits.apply(lambda x: x["subreddit"][3:], axis=1)
-    subreddits["sub_count"] = -1
-    subreddits["last_updated"] = datetime.now()
     subreddits = subreddits.drop_duplicates()
-    subreddits["date"] = datetime(2000, 1, 1).date()
     util.create_dir("output")
     subreddits.to_csv("output/subreddits.csv", index=False)
 
@@ -61,7 +58,12 @@ def export_subreddit_list():
         connection.commit()
 
 
-default_args = {"owner": "scott", "retries": 1, "retry_delay": timedelta(seconds=2)}
+default_args = {
+    "owner": "scott",
+    "retries": 1,
+    "retry_delay": timedelta(seconds=2),
+    "schedule_interval": "@weekly",
+}
 
 
 with DAG(
