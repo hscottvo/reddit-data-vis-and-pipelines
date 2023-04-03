@@ -42,7 +42,7 @@ def get_sub_meta():
     ) as query:
         subs = hook.get_pandas_df(sql=query.read())
     for sub in subs["name"]:
-        print(f"{sub}: ", end="")
+        # print(f"{sub}: ", end="")
         try:
             sub_count = api_hit_helper(reddit, sub)
             curr_date = date.today()
@@ -54,10 +54,13 @@ def get_sub_meta():
                 print(f"Subreddit {sub} is forbidden")
             elif str(err) == "received 403 HTTP response":
                 print(f"Subreddit {sub} is private")
+            elif str(err) == "Redirect to /subreddits/search":
+                print(f"Subreddit {sub} does not exist")
             else:
                 print("Finished this run")
                 print(str(err))
                 break
+    util.create_dir("output")
     df.to_csv("output/sub_counts.csv", index=False)
     print(df.head())
 
@@ -76,7 +79,7 @@ def export_subcounts():
         hook.copy_expert(
             """--sql
                 copy 
-                  public.subscriber_count 
+                  public.subscriber_count(subreddit, sub_count, date) 
                 from stdin
                 with csv header 
                 delimiter as ','
@@ -90,6 +93,7 @@ default_args = {
     "owner": "scott",
     "retries": 1,
     "retry_delay": timedelta(seconds=2),
+    "schedule_interval": "@daily",
 }
 
 with DAG(
@@ -98,13 +102,20 @@ with DAG(
     start_date=datetime(2022, 12, 29),
     catchup=False,
 ) as dag:
-    t1 = PythonOperator(task_id="get_sub_counts", python_callable=get_sub_meta)
+    create_table = PostgresOperator(
+        task_id="create_table",
+        postgres_conn_id="postgres_reddit",
+        sql="sql/create_table.sql",
+    )
+    hit_api = PythonOperator(task_id="get_sub_counts", python_callable=get_sub_meta)
 
-    t2 = PythonOperator(task_id="export_to_postgres", python_callable=export_subcounts)
+    populate_table = PythonOperator(
+        task_id="export_to_postgres", python_callable=export_subcounts
+    )
 
-    t3 = BashOperator(
+    delete_csv = BashOperator(
         task_id="clean_directory",
         bash_command="rm ${AIRFLOW_HOME}/output/sub_counts.csv",
     )
 
-    t1 >> t2 >> t3
+    create_table >> hit_api >> populate_table >> delete_csv
