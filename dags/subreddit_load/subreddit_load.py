@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import praw
 from dotenv import dotenv_values
+from datetime import datetime
 from helpers import util
 from datetime import datetime
 
@@ -28,6 +29,8 @@ def get_subreddit_list():
     subreddits = pd.DataFrame([a["href"] for a in all_a if a["href"].startswith("/r/")])
     subreddits.columns = ["subreddit"]
     subreddits["name"] = subreddits.apply(lambda x: x["subreddit"][3:], axis=1)
+    subreddits["sub_count"] = -1
+    subreddits["last_updated"] = datetime.now()
     subreddits = subreddits.drop_duplicates()
     subreddits["date"] = datetime(2000, 1, 1).date()
     util.create_dir("output")
@@ -89,7 +92,7 @@ with DAG(
 
     t5 = BashOperator(
         task_id="clean_directory",
-        bash_command="rm ${AIRFLOW_HOME}/output/subreddits.csv"
+        bash_command="rm ${AIRFLOW_HOME}/output/subreddits.csv",
     )
 
     t1 >> t2 >> t3 >> t4 >> t5
