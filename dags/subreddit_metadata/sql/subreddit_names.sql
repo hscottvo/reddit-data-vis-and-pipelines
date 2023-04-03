@@ -1,5 +1,6 @@
 select 
   name 
-where 
-  date > current_date - interval '7 days' 
-limit 100;
+from subreddits
+-- where 
+--   last_updated > current_date - interval '7 days' 
+;
