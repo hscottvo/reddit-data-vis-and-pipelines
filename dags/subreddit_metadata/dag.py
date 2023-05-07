@@ -6,6 +6,8 @@ from dotenv import dotenv_values
 from helpers import util
 import os
 
+from sqlalchemy import create_engine
+
 from airflow import DAG
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.postgres.operators.postgres import PostgresOperator
@@ -36,7 +38,7 @@ def get_sub_meta():
     df = pd.DataFrame(columns=["subreddit", "sub_count", "date"])
     # df.columns = ["subreddit", "sub_count", "date"]
 
-    hook = PostgresHook(postgres_conn_id="postgres_reddit")
+    hook = PostgresHook(postgres_conn_id="postgres_cockroach")
     with open(
         f"{AIRFLOW_HOME}/dags/subreddit_metadata/sql/subreddit_names.sql", "r"
     ) as query:
@@ -67,31 +69,22 @@ def get_sub_meta():
 
 def export_subcounts():
     config = dotenv_values("./api_keys/.env")
-    hook = PostgresHook(
-        postgres_conn_id="postgres_reddit",
-        host="host.docker.internal",
-        database="reddit",
-        user=config["POSTGRES_USER"],
-        password=config["POSTGRES_PASSWORD"],
-        port=6543,
+
+    df = pd.read_csv("output/sub_counts.csv")
+
+    engine = create_engine(config["COCKROACH_ALCHEMY"])
+
+    df.to_sql(
+        "subscriber_count",
+        engine,
+        if_exists="replace",
+        index=False,
     )
-    with hook.get_conn() as connection:
-        hook.copy_expert(
-            """--sql
-                copy 
-                  public.subscriber_count(subreddit, sub_count, date) 
-                from stdin
-                with csv header 
-                delimiter as ','
-            """,
-            "output/sub_counts.csv",
-        )
-        connection.commit()
 
 
 default_args = {
     "owner": "scott",
-    "retries": 1,
+    "retries": 0,
     "retry_delay": timedelta(seconds=2),
     "schedule_interval": "@daily",
 }
@@ -100,11 +93,12 @@ with DAG(
     dag_id="subreddit_metadata",
     default_args=default_args,
     start_date=datetime(2022, 12, 29),
+    schedule_interval="30 2 * * *",
     catchup=False,
 ) as dag:
     create_table = PostgresOperator(
         task_id="create_table",
-        postgres_conn_id="postgres_reddit",
+        postgres_conn_id="postgres_cockroach",
         sql="sql/create_table.sql",
     )
     hit_api = PythonOperator(task_id="get_sub_counts", python_callable=get_sub_meta)
