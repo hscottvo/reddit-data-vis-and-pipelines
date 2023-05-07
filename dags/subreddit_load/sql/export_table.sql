@@ -1,0 +1,9 @@
+-- copy subreddit
+-- from
+--   'output/subreddits.csv';
+-- import into subreddit csv data('output/subreddits.csv'
+-- )
+-- with delimiter = '\t'
+-- copy subreddits
+-- from
+--   stdin with csv delimiter as ',' escape as '\';

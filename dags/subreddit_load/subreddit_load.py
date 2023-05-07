@@ -3,7 +3,11 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import praw
 from dotenv import dotenv_values
+from datetime import datetime
 from helpers import util
+from datetime import datetime
+
+from sqlalchemy import create_engine
 
 from airflow import DAG
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -34,35 +38,32 @@ def get_subreddit_list():
 
 def export_subreddit_list():
     config = dotenv_values("./api_keys/.env")
-    hook = PostgresHook(
-        postgres_conn_id="postgres_reddit",
-        host="host.docker.internal",
-        database="reddit",
-        user=config["POSTGRES_USER"],
-        password=config["POSTGRES_PASSWORD"],
-        port=6543,
+
+    df = pd.read_csv("output/subreddits.csv")
+
+    engine = create_engine(config["COCKROACH_ALCHEMY"])
+
+    df.to_sql(
+        "subreddits",
+        engine,
+        if_exists="replace",
+        index=False,
     )
-    with hook.get_conn() as connection:
-        hook.copy_expert(
-            """--sql
-            copy
-              public.subreddits
-            from stdin 
-            with csv header
-            delimiter as ','
-        """,
-            "output/subreddits.csv",
-        )
-        connection.commit()
 
 
-default_args = {"owner": "scott", "retries": 1, "retry_delay": timedelta(seconds=2)}
+default_args = {
+    "owner": "scott",
+    "retries": 0,
+    "retry_delay": timedelta(seconds=2),
+    "schedule_interval": "@weekly",
+}
 
 
 with DAG(
     dag_id="subreddit_list",
     default_args=default_args,
     start_date=datetime(2022, 12, 29),
+    schedule_interval="0 2 * * 0",
     catchup=False,
 ) as dag:
     t1 = PythonOperator(
@@ -71,13 +72,13 @@ with DAG(
 
     t2 = PostgresOperator(
         task_id="create_table",
-        postgres_conn_id="postgres_reddit",
+        postgres_conn_id="postgres_cockroach",
         sql="sql/create_table.sql",
     )
 
     t3 = PostgresOperator(
         task_id="clear_table",
-        postgres_conn_id="postgres_reddit",
+        postgres_conn_id="postgres_cockroach",
         sql="sql/clear_table.sql",
     )
 
@@ -87,7 +88,7 @@ with DAG(
 
     t5 = BashOperator(
         task_id="clean_directory",
-        bash_command="rm ${AIRFLOW_HOME}/output/subreddits.csv"
+        bash_command="rm ${AIRFLOW_HOME}/output/subreddits.csv",
     )
 
     t1 >> t2 >> t3 >> t4 >> t5
