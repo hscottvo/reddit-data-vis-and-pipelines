@@ -77,7 +77,7 @@ def export_subcounts():
     df.to_sql(
         "subscriber_count",
         engine,
-        if_exists="replace",
+        if_exists="append",
         index=False,
     )
 
